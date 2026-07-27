@@ -1,0 +1,73 @@
+WITH es AS (
+  SELECT
+    id_account,
+    id_message
+  FROM `DA.email_sent`
+),
+
+eo AS (
+  SELECT DISTINCT
+    id_message
+  FROM `DA.email_open`
+),
+ 
+ev AS (
+  SELECT DISTINCT
+    id_message
+  FROM `DA.email_visit`
+),
+
+acs AS (
+  SELECT
+    account_id,
+    ga_session_id
+  FROM `DA.account_session`
+),
+
+sp AS (
+  SELECT DISTINCT
+    ga_session_id,
+    operating_system
+  FROM `DA.session_params`
+),
+
+a AS (
+  SELECT id
+  FROM `DA.account`
+  WHERE is_unsubscribed = 0
+)
+
+
+SELECT
+  sp.operating_system,
+  COUNT(DISTINCT es.id_message) AS sent_msg,
+  COUNT(DISTINCT eo.id_message) AS open_msg,
+  COUNT(DISTINCT ev.id_message) AS visit_msg,
+
+  SAFE_DIVIDE(COUNT(DISTINCT eo.id_message), COUNT(DISTINCT es.id_message)) * 100.0 AS open_rate,
+  SAFE_DIVIDE(COUNT(DISTINCT ev.id_message), COUNT(DISTINCT es.id_message)) * 100.0 AS click_rate,
+  SAFE_DIVIDE(COUNT(DISTINCT ev.id_message), COUNT(DISTINCT eo.id_message)) * 100.0 AS ctor
+
+FROM `DA.account` a
+
+JOIN `DA.email_sent` es
+  ON a.id = es.id_account
+
+LEFT JOIN `DA.email_open` eo
+  ON es.id_message = eo.id_message
+
+LEFT JOIN `DA.email_visit` ev
+  ON es.id_message = ev.id_message
+
+JOIN `DA.account_session` acs
+  ON a.id = acs.account_id
+
+JOIN `DA.session_params` sp
+  ON acs.ga_session_id = sp.ga_session_id
+
+
+WHERE a.is_unsubscribed = 0
+
+
+GROUP BY sp.operating_system
+ORDER BY sent_msg DESC;
